@@ -26,8 +26,14 @@ class WassersteinDistance(Divergence):
     --------
     >>> import torch
     >>> from pixyz.distributions import Normal
-    >>> p = Normal(loc="x", scale=torch.tensor(1.), var=["z"], cond_var=["x"], features_shape=[64], name="p")
-    >>> q = Normal(loc="x", scale=torch.tensor(1.), var=["z"], cond_var=["x"], features_shape=[64], name="q")
+    >>> class NormalP(Normal):
+    ...     def forward(self, x, **kwargs):
+    ...         return {'loc': x, 'scale': torch.ones(1, 64)}
+    >>> p = NormalP(var=["z"], cond_var=["x"], features_shape=[64], name="p")
+    >>> class NormalQ(Normal):
+    ...     def forward(self, x, **kwargs):
+    ...         return {'loc': x, 'scale': torch.ones(1, 64)}
+    >>> q = NormalQ(var=["z"], cond_var=["x"], features_shape=[64], name="q")
     >>> loss_cls = WassersteinDistance(p, q)
     >>> print(loss_cls)
     W^{upper} \left(p(z|x), q(z|x) \right)

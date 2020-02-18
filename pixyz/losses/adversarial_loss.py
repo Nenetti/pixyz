@@ -142,21 +142,21 @@ class AdversarialJensenShannon(AdversarialLoss):
     ...     def __init__(self):
     ...         super(Generator, self).__init__(cond_var=["z"], var=["x"], name="p")
     ...         self.model = nn.Linear(32, 64)
-    ...     def forward(self, z):
+    ...     def forward(self, z, **kwargs):
     ...         return {"x": self.model(z)}
     >>> p_g = Generator()
-    >>> prior = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.),
-    ...                var=["z"], features_shape=[32], name="p_{prior}")
+    >>> class NormalPrior(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 32), 'scale': torch.ones(1, 32)}
+    >>> prior = NormalPrior(var=["z"], features_shape=[32], name="p_{prior}")
     >>> p = (p_g*prior).marginalize_var("z")
     >>> print(p)
     Distribution:
       p(x) = \int p(x|z)p_{prior}(z)dz
     Network architecture:
-      Normal(
+      NormalPrior(
         name=p_{prior}, distribution_name=Normal,
         var=['z'], cond_var=[], input_var=[], features_shape=torch.Size([32])
-        (loc): torch.Size([1, 32])
-        (scale): torch.Size([1, 32])
       )
       Generator(
         name=p, distribution_name=Deterministic,
@@ -178,7 +178,7 @@ class AdversarialJensenShannon(AdversarialLoss):
     ...     def __init__(self):
     ...         super(Discriminator, self).__init__(cond_var=["x"], var=["t"], name="d")
     ...         self.model = nn.Linear(64, 1)
-    ...     def forward(self, x):
+    ...     def forward(self, x, **kwargs):
     ...         return {"t": torch.sigmoid(self.model(x))}
     >>> d = Discriminator()
     >>> print(d)
@@ -307,21 +307,21 @@ class AdversarialKullbackLeibler(AdversarialLoss):
     ...     def __init__(self):
     ...         super(Generator, self).__init__(cond_var=["z"], var=["x"], name="p")
     ...         self.model = nn.Linear(32, 64)
-    ...     def forward(self, z):
+    ...     def forward(self, z, **kwargs):
     ...         return {"x": self.model(z)}
     >>> p_g = Generator()
-    >>> prior = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.),
-    ...                var=["z"], features_shape=[32], name="p_{prior}")
+    >>> class NormalPrior(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 32), 'scale': torch.ones(1, 32)}
+    >>> prior = NormalPrior(var=["z"], features_shape=[32], name="p_{prior}")
     >>> p = (p_g*prior).marginalize_var("z")
     >>> print(p)
     Distribution:
       p(x) = \int p(x|z)p_{prior}(z)dz
     Network architecture:
-      Normal(
+      NormalPrior(
         name=p_{prior}, distribution_name=Normal,
         var=['z'], cond_var=[], input_var=[], features_shape=torch.Size([32])
-        (loc): torch.Size([1, 32])
-        (scale): torch.Size([1, 32])
       )
       Generator(
         name=p, distribution_name=Deterministic,
@@ -343,7 +343,7 @@ class AdversarialKullbackLeibler(AdversarialLoss):
     ...     def __init__(self):
     ...         super(Discriminator, self).__init__(cond_var=["x"], var=["t"], name="d")
     ...         self.model = nn.Linear(64, 1)
-    ...     def forward(self, x):
+    ...     def forward(self, x, **kwargs):
     ...         return {"t": torch.sigmoid(self.model(x))}
     >>> d = Discriminator()
     >>> print(d)
@@ -463,21 +463,21 @@ class AdversarialWassersteinDistance(AdversarialJensenShannon):
     ...     def __init__(self):
     ...         super(Generator, self).__init__(cond_var=["z"], var=["x"], name="p")
     ...         self.model = nn.Linear(32, 64)
-    ...     def forward(self, z):
+    ...     def forward(self, z, **kwargs):
     ...         return {"x": self.model(z)}
     >>> p_g = Generator()
-    >>> prior = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.),
-    ...                var=["z"], features_shape=[32], name="p_{prior}")
+    >>> class NormalPrior(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 32), 'scale': torch.ones(1, 32)}
+    >>> prior = NormalPrior(var=["z"], features_shape=[32], name="p_{prior}")
     >>> p = (p_g*prior).marginalize_var("z")
     >>> print(p)
     Distribution:
       p(x) = \int p(x|z)p_{prior}(z)dz
     Network architecture:
-      Normal(
+      NormalPrior(
         name=p_{prior}, distribution_name=Normal,
         var=['z'], cond_var=[], input_var=[], features_shape=torch.Size([32])
-        (loc): torch.Size([1, 32])
-        (scale): torch.Size([1, 32])
       )
       Generator(
         name=p, distribution_name=Deterministic,
@@ -499,7 +499,7 @@ class AdversarialWassersteinDistance(AdversarialJensenShannon):
     ...     def __init__(self):
     ...         super(Discriminator, self).__init__(cond_var=["x"], var=["t"], name="d")
     ...         self.model = nn.Linear(64, 1)
-    ...     def forward(self, x):
+    ...     def forward(self, x, **kwargs):
     ...         return {"t": self.model(x)}
     >>> d = Discriminator()
     >>> print(d)

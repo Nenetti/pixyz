@@ -33,7 +33,7 @@ class IterativeLoss(Loss):
     ...     def __init__(self):
     ...         super().__init__(cond_var=["z", "h_prev"], var=["x"], name="p")
     ...         self.fc = torch.nn.Linear(z_dim + h_dim, x_dim)
-    ...     def forward(self, z, h_prev):
+    ...     def forward(self, z, h_prev, **kwargs):
     ...         return {"probs": torch.sigmoid(self.fc(torch.cat((z, h_prev), dim=-1)))}
     ...
     >>> # q(z|x,h_{prev})
@@ -42,7 +42,7 @@ class IterativeLoss(Loss):
     ...         super().__init__(cond_var=["x", "h_prev"], var=["z"], name="q")
     ...         self.fc_loc = torch.nn.Linear(x_dim + h_dim, z_dim)
     ...         self.fc_scale = torch.nn.Linear(x_dim + h_dim, z_dim)
-    ...     def forward(self, x, h_prev):
+    ...     def forward(self, x, h_prev, **kwargs):
     ...         xh = torch.cat((x, h_prev), dim=-1)
     ...         return {"loc": self.fc_loc(xh), "scale": F.softplus(self.fc_scale(xh))}
     ...
@@ -51,7 +51,7 @@ class IterativeLoss(Loss):
     ...     def __init__(self):
     ...         super().__init__(cond_var=["x", "z", "h_prev"], var=["h"], name="f")
     ...         self.rnncell = torch.nn.GRUCell(x_dim + z_dim, h_dim)
-    ...     def forward(self, x, z, h_prev):
+    ...     def forward(self, x, z, h_prev, **kwargs):
     ...         return {"h": self.rnncell(torch.cat((z, x), dim=-1), h_prev)}
     >>>
     >>> p = Decoder()

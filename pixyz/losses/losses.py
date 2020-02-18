@@ -26,20 +26,22 @@ class Loss(torch.nn.Module, metaclass=abc.ABCMeta):
     ...         super().__init__(cond_var=["x"], var=["z"], name="q")
     ...         self.model_loc = torch.nn.Linear(128, 64)
     ...         self.model_scale = torch.nn.Linear(128, 64)
-    ...     def forward(self, x):
+    ...     def forward(self, x, **kwargs):
     ...         return {"loc": self.model_loc(x), "scale": F.softplus(self.model_scale(x))}
     ...
     >>> class Generator(Bernoulli):
     ...     def __init__(self):
     ...         super().__init__(cond_var=["z"], var=["x"], name="p")
     ...         self.model = torch.nn.Linear(64, 128)
-    ...     def forward(self, z):
+    ...     def forward(self, z, **kwargs):
     ...         return {"probs": torch.sigmoid(self.model(z))}
     ...
     >>> p = Generator()
     >>> q = Inference()
-    >>> prior = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.),
-    ...                var=["z"], features_shape=[64], name="p_{prior}")
+    >>> class NormalPrior(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 64), 'scale': torch.ones(1, 64)}
+    >>> prior = NormalPrior(var=["z"], features_shape=[32], name="p_{prior}")
     ...
     >>> # Define a loss function (VAE)
     >>> reconst = StochasticReconstructionLoss(q, p)
@@ -587,8 +589,10 @@ class AbsLoss(LossSelfOperator):
     >>> import torch
     >>> from pixyz.distributions import Normal
     >>> from pixyz.losses import LogProb
-    >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-    ...            features_shape=[10])
+    >>> class NormalP(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+    >>> p = NormalP(var=["x"], features_shape=[10])
     >>> loss_cls = LogProb(p).abs() # equals to AbsLoss(LogProb(p))
     >>> print(loss_cls)
     |\\log p(x)|
@@ -622,8 +626,10 @@ class BatchMean(LossSelfOperator):
     >>> import torch
     >>> from pixyz.distributions import Normal
     >>> from pixyz.losses import LogProb
-    >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-    ...            features_shape=[10])
+    >>> class NormalP(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+    >>> p = NormalP(var=["x"], features_shape=[10])
     >>> loss_cls = LogProb(p).mean() # equals to BatchMean(LogProb(p))
     >>> print(loss_cls)
     mean \left(\log p(x) \right)
@@ -657,8 +663,10 @@ class BatchSum(LossSelfOperator):
     >>> import torch
     >>> from pixyz.distributions import Normal
     >>> from pixyz.losses import LogProb
-    >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-    ...            features_shape=[10])
+    >>> class NormalP(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+    >>> p = NormalP(var=["x"], features_shape=[10])
     >>> loss_cls = LogProb(p).sum() # equals to BatchSum(LogProb(p))
     >>> print(loss_cls)
     sum \left(\log p(x) \right)
@@ -711,10 +719,14 @@ class Expectation(Loss):
     >>> import torch
     >>> from pixyz.distributions import Normal, Bernoulli
     >>> from pixyz.losses import LogProb
-    >>> q = Normal(loc="x", scale=torch.tensor(1.), var=["z"], cond_var=["x"],
-    ...            features_shape=[10]) # q(z|x)
-    >>> p = Normal(loc="z", scale=torch.tensor(1.), var=["x"], cond_var=["z"],
-    ...            features_shape=[10]) # p(x|z)
+    >>> class NormalQ(Normal):
+    ...     def forward(self, x, **kwargs):
+    ...         return {'loc': x, 'scale': torch.ones(1, 10)}
+    >>> q = NormalQ(var=["z"], cond_var=["x"], features_shape=[10])
+    >>> class NormalP(Normal):
+    ...     def forward(self, z, **kwargs):
+    ...         return {'loc': z, 'scale': torch.ones(1, 10)}
+    >>> p = NormalP(var=["x"], cond_var=["z"], features_shape=[10])
     >>> loss_cls = LogProb(p).expectation(q) # equals to Expectation(q, LogProb(p))
     >>> print(loss_cls)
     \mathbb{E}_{p(z|x)} \left[\log p(x|z) \right]
@@ -725,8 +737,14 @@ class Expectation(Loss):
     >>> loss_cls = LogProb(p).expectation(q, sample_shape=(5,))
     >>> loss = loss_cls.eval({"x": sample_x})
     >>> print(loss) # doctest: +SKIP
-    >>> q = Bernoulli(probs=torch.tensor(0.5), var=["x"], cond_var=[], features_shape=[10]) # q(x)
-    >>> p = Bernoulli(probs=torch.tensor(0.3), var=["x"], cond_var=[], features_shape=[10]) # p(x)
+    >>> class BernoulliQ(Bernoulli):
+    ...     def forward(self, **kwargs):
+    ...         return {'probs': torch.ones(1, 10)*0.5}
+    >>> q = BernoulliQ(var=["x"], features_shape=[10])
+    >>> class BernoulliP(Bernoulli):
+    ...     def forward(self, **kwargs):
+    ...         return {'probs': torch.ones(1, 10)*0.3}
+    >>> p = BernoulliQ(var=["x"], features_shape=[10])
     >>> loss_cls = p.log_prob().expectation(q, sample_shape=[64])
     >>> train_loss = loss_cls.eval()
     >>> print(train_loss) # doctest: +SKIP
@@ -795,8 +813,14 @@ def REINFORCE(p, f, b=ValueLoss(0), input_var=None, sample_shape=torch.Size([1])
     >>> import torch
     >>> from pixyz.distributions import Normal, Bernoulli
     >>> from pixyz.losses import LogProb
-    >>> q = Bernoulli(probs=torch.tensor(0.5), var=["x"], cond_var=[], features_shape=[10]) # q(x)
-    >>> p = Bernoulli(probs=torch.tensor(0.3), var=["x"], cond_var=[], features_shape=[10]) # p(x)
+    >>> class BernoulliQ(Bernoulli):
+    ...     def forward(self, **kwargs):
+    ...         return {'probs': torch.ones(1, 10)*0.5}
+    >>> q = BernoulliQ(var=["x"], features_shape=[10])
+    >>> class BernoulliP(Bernoulli):
+    ...     def forward(self, **kwargs):
+    ...         return {'probs': torch.ones(1, 10)*0.3}
+    >>> p = BernoulliQ(var=["x"], features_shape=[10])
     >>> loss_cls = REINFORCE(q, p.log_prob(), sample_shape=[64])
     >>> train_loss = loss_cls.eval(test_mode=True)
     >>> print(train_loss) # doctest: +SKIP
@@ -831,20 +855,22 @@ class DataParalleledLoss(Loss):
     ...         super().__init__(cond_var=["x"], var=["z"], name="q")
     ...         self.model_loc = torch.nn.Linear(128, 64)
     ...         self.model_scale = torch.nn.Linear(128, 64)
-    ...     def forward(self, x):
+    ...     def forward(self, x, **kwargs):
     ...         used_gpu_i.add(x.device.index)
     ...         return {"loc": self.model_loc(x), "scale": F.softplus(self.model_scale(x))}
     >>> class Generator(Bernoulli):
     ...     def __init__(self):
     ...         super().__init__(cond_var=["z"], var=["x"], name="p")
     ...         self.model = torch.nn.Linear(64, 128)
-    ...     def forward(self, z):
+    ...     def forward(self, z, **kwargs):
     ...         used_gpu_g.add(z.device.index)
     ...         return {"probs": torch.sigmoid(self.model(z))}
     >>> p = Generator()
     >>> q = Inference()
-    >>> prior = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.),
-    ...                var=["z"], features_shape=[64], name="p_{prior}")
+    >>> class NormalPrior(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 64), 'scale': torch.ones(1, 64)}
+    >>> prior = NormalPrior(var=["z"], features_shape=[64], name="p_{prior}")
     >>> # Define a loss function (Loss API)
     >>> reconst = StochasticReconstructionLoss(q, p)
     >>> kl = KullbackLeibler(q, prior)

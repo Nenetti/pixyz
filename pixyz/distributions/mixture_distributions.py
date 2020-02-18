@@ -18,13 +18,19 @@ class MixtureModel(Distribution):
     >>> from pixyz.distributions.mixture_distributions import MixtureModel
     >>> z_dim = 3  # the number of mixture
     >>> x_dim = 2  # the input dimension.
+    >>> class MyNormal(Normal):
+    ...     def forward(self, loc, scale, **kwargs):
+    ...         return {'loc': loc, 'scale': scale}
     >>> distributions = []  # the list of distributions
     >>> for i in range(z_dim):
     ...     loc = torch.randn(x_dim)  # initialize the value of location (mean)
     ...     scale = torch.empty(x_dim).fill_(1.)  # initialize the value of scale (variance)
-    ...     distributions.append(Normal(loc=loc, scale=scale, var=["x"], name="p_%d" %i))
+    ...     distributions.append(MyNormal(var=["x"], name="p_%d" %i, features_shape=[2]))
     >>> probs = torch.empty(z_dim).fill_(1. / z_dim)  # initialize the value of probabilities
-    >>> prior = Categorical(probs=probs, var=["z"], name="prior")
+    >>> class MyCategorical(Categorical):
+    ...     def forward(self, **kwargs):
+    ...         return {'probs': probs}
+    >>> prior = MyCategorical(var=["z"], name="prior", features_shape=[3])
     >>> p = MixtureModel(distributions=distributions, prior=prior)
     >>> print(p)
     Distribution:
@@ -34,29 +40,22 @@ class MixtureModel(Distribution):
         name=p, distribution_name=Mixture Model,
         var=['x'], cond_var=[], input_var=[], features_shape=torch.Size([])
         (distributions): ModuleList(
-          (0): Normal(
+          (0): MyNormal(
             name=p_{0}, distribution_name=Normal,
             var=['x'], cond_var=[], input_var=[], features_shape=torch.Size([2])
-            (loc): torch.Size([1, 2])
-            (scale): torch.Size([1, 2])
           )
-          (1): Normal(
+          (1): MyNormal(
             name=p_{1}, distribution_name=Normal,
             var=['x'], cond_var=[], input_var=[], features_shape=torch.Size([2])
-            (loc): torch.Size([1, 2])
-            (scale): torch.Size([1, 2])
           )
-          (2): Normal(
+          (2): MyNormal(
             name=p_{2}, distribution_name=Normal,
             var=['x'], cond_var=[], input_var=[], features_shape=torch.Size([2])
-            (loc): torch.Size([1, 2])
-            (scale): torch.Size([1, 2])
           )
         )
-        (prior): Categorical(
+        (prior): MyCategorical(
           name=prior, distribution_name=Categorical,
           var=['z'], cond_var=[], input_var=[], features_shape=torch.Size([3])
-          (probs): torch.Size([1, 3])
         )
       )
     """

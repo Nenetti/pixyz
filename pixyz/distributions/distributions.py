@@ -4,7 +4,7 @@ import re
 from torch import nn
 from copy import deepcopy
 
-from ..utils import get_dict_values, replace_dict_keys, replace_dict_keys_split, delete_dict_values,\
+from ..utils import get_dict_values, replace_dict_keys, delete_dict_values,\
     tolist, sum_samples, convert_latex_name
 from ..losses import LogProb, Prob
 
@@ -19,30 +19,31 @@ class Distribution(nn.Module):
     >>> from torch.nn import functional as F
     >>> from pixyz.distributions import Normal
     >>> # Marginal distribution
-    >>> p1 = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-    ...             features_shape=[64], name="p1")
+    >>> class NormalP1(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 64), 'scale': torch.ones(1, 64)}
+    >>> p1 = NormalP1(var=["x"], features_shape=[64], name="p1")
     >>> print(p1)
     Distribution:
       p_{1}(x)
     Network architecture:
-      Normal(
+      NormalP1(
         name=p_{1}, distribution_name=Normal,
         var=['x'], cond_var=[], input_var=[], features_shape=torch.Size([64])
-        (loc): torch.Size([1, 64])
-        (scale): torch.Size([1, 64])
       )
 
     >>> # Conditional distribution
-    >>> p2 = Normal(loc="y", scale=torch.tensor(1.), var=["x"], cond_var=["y"],
-    ...             features_shape=[64], name="p2")
+    >>> class NormalP2(Normal):
+    ...     def forward(self, y, **kwargs):
+    ...         return {'loc': y, 'scale': torch.ones(1, 64)}
+    >>> p2 = NormalP2(var=["x"], cond_var=["y"], features_shape=[64], name="p2")
     >>> print(p2)
     Distribution:
       p_{2}(x|y)
     Network architecture:
-      Normal(
+      NormalP2(
         name=p_{2}, distribution_name=Normal,
         var=['x'], cond_var=['y'], input_var=['y'], features_shape=torch.Size([64])
-        (scale): torch.Size([1, 64])
       )
 
     >>> # Conditional distribution (by neural networks)
@@ -51,7 +52,7 @@ class Distribution(nn.Module):
     ...         super().__init__(var=["x"], cond_var=["y"], name="p3")
     ...         self.model_loc = nn.Linear(128, 64)
     ...         self.model_scale = nn.Linear(128, 64)
-    ...     def forward(self, y):
+    ...     def forward(self, y, **kwargs):
     ...         return {"loc": self.model_loc(y), "scale": F.softplus(self.model_scale(y))}
     >>> p3 = P()
     >>> print(p3)
@@ -227,33 +228,35 @@ class Distribution(nn.Module):
         Examples
         --------
         >>> from pixyz.distributions import Normal
-        >>> dist_1 = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-        ...                 features_shape=[1])
+        >>> class NormalD1(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': torch.zeros(1, 1), 'scale': torch.ones(1, 1)}
+        >>> dist_1 = NormalD1(var=["x"], features_shape=torch.Size([1]))
         >>> print(dist_1)
         Distribution:
           p(x)
         Network architecture:
-          Normal(
+          NormalD1(
             name=p, distribution_name=Normal,
             var=['x'], cond_var=[], input_var=[], features_shape=torch.Size([1])
-            (loc): torch.Size([1, 1])
-            (scale): torch.Size([1, 1])
           )
         >>> dist_1.get_params()
         {'loc': tensor([[0.]]), 'scale': tensor([[1.]])}
 
-        >>> dist_2 = Normal(loc=torch.tensor(0.), scale="z", cond_var=["z"], var=["x"])
+        >>> class NormalD2(Normal):
+        ...     def forward(self, z, **kwargs):
+        ...         return {'loc': torch.zeros(1, 1), 'scale': z}
+        >>> dist_2 = NormalD2(cond_var=["z"], var=["x"])
         >>> print(dist_2)
         Distribution:
           p(x|z)
         Network architecture:
-          Normal(
+          NormalD2(
             name=p, distribution_name=Normal,
             var=['x'], cond_var=['z'], input_var=['z'], features_shape=torch.Size([])
-            (loc): torch.Size([1])
           )
-        >>> dist_2.get_params({"z": torch.tensor(1.)})
-        {'scale': tensor(1.), 'loc': tensor([0.])}
+        >>> dist_2.get_params({"z": torch.ones(1, 1)})
+        {'loc': tensor([[0.]]), 'scale': tensor([[1.]])}
 
         """
         raise NotImplementedError()
@@ -285,17 +288,17 @@ class Distribution(nn.Module):
         --------
         >>> from pixyz.distributions import Normal
         >>> # Marginal distribution
-        >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-        ...            features_shape=[10, 2])
+        >>> class NormalP(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': torch.zeros(1, 10, 2), 'scale': torch.ones(1, 10, 2)}
+        >>> p = NormalP(var=["x"], features_shape=[10, 2])
         >>> print(p)
         Distribution:
           p(x)
         Network architecture:
-          Normal(
+          NormalP(
             name=p, distribution_name=Normal,
             var=['x'], cond_var=[], input_var=[], features_shape=torch.Size([10, 2])
-            (loc): torch.Size([1, 10, 2])
-            (scale): torch.Size([1, 10, 2])
           )
         >>> p.sample()["x"].shape  # (batch_n=1, features_shape)
         torch.Size([1, 10, 2])
@@ -305,16 +308,17 @@ class Distribution(nn.Module):
         torch.Size([40, 30, 20, 10, 2])
 
         >>> # Conditional distribution
-        >>> p = Normal(loc="y", scale=torch.tensor(1.), var=["x"], cond_var=["y"],
-        ...            features_shape=[10])
+        >>> class NormalP(Normal):
+        ...     def forward(self, y, **kwargs):
+        ...         return {'loc': y, 'scale': torch.ones(1, 10)}
+        >>> p = NormalP(var=["x"], cond_var=["y"], features_shape=[10])
         >>> print(p)
         Distribution:
           p(x|y)
         Network architecture:
-          Normal(
+          NormalP(
             name=p, distribution_name=Normal,
             var=['x'], cond_var=['y'], input_var=['y'], features_shape=torch.Size([10])
-            (scale): torch.Size([1, 10])
           )
         >>> sample_y = torch.randn(1, 10) # Psuedo data
         >>> sample_a = torch.randn(1, 10) # Psuedo data
@@ -353,15 +357,19 @@ class Distribution(nn.Module):
         >>> import torch
         >>> from pixyz.distributions import Normal
         >>> # Marginal distribution
-        >>> p1 = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-        ...             features_shape=[10], name="p1")
+        >>> class NormalP1(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+        >>> p1 = NormalP1(var=["x"], features_shape=[10], name="p1")
         >>> mean = p1.sample_mean()
         >>> print(mean)
         tensor([[0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]])
 
         >>> # Conditional distribution
-        >>> p2 = Normal(loc="y", scale=torch.tensor(1.), var=["x"], cond_var=["y"],
-        ...             features_shape=[10], name="p2")
+        >>> class NormalP2(Normal):
+        ...     def forward(self, y, **kwargs):
+        ...         return {'loc': y, 'scale': torch.ones(1, 10)}
+        >>> p2 = NormalP1(var=["x"], cond_var=["y"], features_shape=[10], name="p2")
         >>> sample_y = torch.randn(1, 10) # Psuedo data
         >>> mean = p2.sample_mean({"y": sample_y})
         >>> print(mean) # doctest: +SKIP
@@ -384,15 +392,19 @@ class Distribution(nn.Module):
         >>> import torch
         >>> from pixyz.distributions import Normal
         >>> # Marginal distribution
-        >>> p1 = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-        ...             features_shape=[10], name="p1")
+        >>> class NormalP1(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+        >>> p1 = NormalP1(var=["x"], features_shape=[10], name="p1")
         >>> var = p1.sample_variance()
         >>> print(var)
         tensor([[1., 1., 1., 1., 1., 1., 1., 1., 1., 1.]])
 
         >>> # Conditional distribution
-        >>> p2 = Normal(loc="y", scale=torch.tensor(1.), var=["x"], cond_var=["y"],
-        ...             features_shape=[10], name="p2")
+        >>> class NormalP2(Normal):
+        ...     def forward(self, y, **kwargs):
+        ...         return {'loc': y, 'scale': torch.ones(1, 10)}
+        >>> p2 = NormalP1(var=["x"], cond_var=["y"], features_shape=[10], name="p2")
         >>> sample_y = torch.randn(1, 10) # Psuedo data
         >>> var = p2.sample_variance({"y": sample_y})
         >>> print(var) # doctest: +SKIP
@@ -423,16 +435,20 @@ class Distribution(nn.Module):
         >>> import torch
         >>> from pixyz.distributions import Normal
         >>> # Marginal distribution
-        >>> p1 = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-        ...             features_shape=[10], name="p1")
+        >>> class NormalP1(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+        >>> p1 = NormalP1(var=["x"], features_shape=[10], name="p1")
         >>> sample_x = torch.randn(1, 10) # Psuedo data
         >>> log_prob = p1.log_prob({"x": sample_x})
         >>> print(log_prob) # doctest: +SKIP
         tensor([-16.1153])
 
         >>> # Conditional distribution
-        >>> p2 = Normal(loc="y", scale=torch.tensor(1.), var=["x"], cond_var=["y"],
-        ...             features_shape=[10], name="p2")
+        >>> class NormalP2(Normal):
+        ...     def forward(self, y, **kwargs):
+        ...         return {'loc': y, 'scale': torch.ones(1, 10)}
+        >>> p2 = NormalP1(var=["x"], cond_var=["y"], features_shape=[10], name="p2")
         >>> sample_y = torch.randn(1, 10) # Psuedo data
         >>> log_prob = p2.log_prob({"x": sample_x, "y": sample_y})
         >>> print(log_prob) # doctest: +SKIP
@@ -463,15 +479,19 @@ class Distribution(nn.Module):
         >>> import torch
         >>> from pixyz.distributions import Normal
         >>> # Marginal distribution
-        >>> p1 = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-        ...             features_shape=[10], name="p1")
+        >>> class NormalP1(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+        >>> p1 = NormalP1(var=["x"], features_shape=[10], name="p1")
         >>> entropy = p1.get_entropy()
         >>> print(entropy)
         tensor([14.1894])
 
         >>> # Conditional distribution
-        >>> p2 = Normal(loc="y", scale=torch.tensor(1.), var=["x"], cond_var=["y"],
-        ...             features_shape=[10], name="p2")
+        >>> class NormalP2(Normal):
+        ...     def forward(self, y, **kwargs):
+        ...         return {'loc': y, 'scale': torch.ones(1, 10)}
+        >>> p2 = NormalP1(var=["x"], cond_var=["y"], features_shape=[10], name="p2")
         >>> sample_y = torch.randn(1, 10) # Psuedo data
         >>> entropy = p2.get_entropy({"y": sample_y})
         >>> print(entropy)
@@ -500,16 +520,20 @@ class Distribution(nn.Module):
         >>> import torch
         >>> from pixyz.distributions import Normal
         >>> # Marginal distribution
-        >>> p1 = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-        ...             features_shape=[10], name="p1")
+        >>> class NormalP1(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+        >>> p1 = NormalP1(var=["x"], features_shape=[10], name="p1")
         >>> sample_x = torch.randn(1, 10) # Psuedo data
         >>> log_prob = p1.log_prob().eval({"x": sample_x})
         >>> print(log_prob) # doctest: +SKIP
         tensor([-16.1153])
 
         >>> # Conditional distribution
-        >>> p2 = Normal(loc="y", scale=torch.tensor(1.), var=["x"], cond_var=["y"],
-        ...             features_shape=[10], name="p2")
+        >>> class NormalP2(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': y, 'scale': torch.ones(1, 10)}
+        >>> p2 = NormalP1(var=["x"], cond_var=["y"], features_shape=[10], name="p2")
         >>> sample_y = torch.randn(1, 10) # Psuedo data
         >>> log_prob = p2.log_prob().eval({"x": sample_x, "y": sample_y})
         >>> print(log_prob) # doctest: +SKIP
@@ -539,16 +563,20 @@ class Distribution(nn.Module):
         >>> import torch
         >>> from pixyz.distributions import Normal
         >>> # Marginal distribution
-        >>> p1 = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-        ...             features_shape=[10], name="p1")
+        >>> class NormalP1(Normal):
+        ...     def forward(self, **kwargs):
+        ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+        >>> p1 = NormalP1(var=["x"], features_shape=[10], name="p1")
         >>> sample_x = torch.randn(1, 10) # Psuedo data
         >>> prob = p1.prob().eval({"x": sample_x})
         >>> print(prob) # doctest: +SKIP
         tensor([4.0933e-07])
 
         >>> # Conditional distribution
-        >>> p2 = Normal(loc="y", scale=torch.tensor(1.), var=["x"], cond_var=["y"],
-        ...             features_shape=[10], name="p2")
+        >>> class NormalP2(Normal):
+        ...     def forward(self, y, **kwargs):
+        ...         return {'loc': y, 'scale': torch.ones(1, 10)}
+        >>> p2 = NormalP1(var=["x"], cond_var=["y"], features_shape=[10], name="p2")
         >>> sample_y = torch.randn(1, 10) # Psuedo data
         >>> prob = p2.prob().eval({"x": sample_x, "y": sample_y})
         >>> print(prob) # doctest: +SKIP
@@ -630,54 +658,10 @@ class Distribution(nn.Module):
 class DistributionBase(Distribution):
     """Distribution class with PyTorch. In Pixyz, all distributions are required to inherit this class."""
 
-    def __init__(self, cond_var=[], var=["x"], name="p", features_shape=torch.Size(), **kwargs):
+    def __init__(self, cond_var=[], var=["x"], name="p", features_shape=torch.Size()):
         super().__init__(cond_var=cond_var, var=var, name=name, features_shape=features_shape)
 
-        self._set_buffers(**kwargs)
         self._dist = None
-
-    def _set_buffers(self, **params_dict):
-        """Format constant parameters of this distribution as buffers.
-
-        Parameters
-        ----------
-        params_dict : dict
-            Constant parameters of this distribution set at initialization.
-            If the values of these dictionaries contain parameters which are named as strings, which means that
-            these parameters are set as `variables`, the correspondences between these values and the true name of
-            these parameters are stored as :obj:`dict` (:attr:`replace_params_dict`).
-
-        """
-
-        self.replace_params_dict = {}
-
-        for key in params_dict.keys():
-            if type(params_dict[key]) is str:
-                if params_dict[key] in self._cond_var:
-                    self.replace_params_dict[params_dict[key]] = key
-                else:
-                    raise ValueError()
-            elif isinstance(params_dict[key], torch.Tensor):
-                features = params_dict[key]
-                features_checked = self._check_features_shape(features)
-                self.register_buffer(key, features_checked)
-            else:
-                raise ValueError()
-
-    def _check_features_shape(self, features):
-        # scalar
-        if features.size() == torch.Size():
-            features = features.expand(self.features_shape)
-
-        if self.features_shape == torch.Size():
-            self._features_shape = features.shape
-
-        if features.size() == self.features_shape:
-            batches = features.unsqueeze(0)
-            return batches
-
-        raise ValueError("the shape of a given parameter {} and features_shape {} "
-                         "do not match.".format(features.size(), self.features_shape))
 
     def get_params_keys(self, **kwargs):
         """list: Return the list of parameter names for this distribution."""
@@ -769,17 +753,10 @@ class DistributionBase(Distribution):
         return log_prob
 
     def get_params(self, params_dict={}, **kwargs):
-        params_dict, vars_dict = replace_dict_keys_split(params_dict, self.replace_params_dict)
-        output_dict = self.forward(**vars_dict)
+        return self.forward(**params_dict, **kwargs)
 
-        output_dict.update(params_dict)
-
-        # append constant parameters to output_dict
-        constant_params_dict = get_dict_values(dict(self.named_buffers()), self.get_params_keys(**kwargs),
-                                               return_dict=True)
-        output_dict.update(constant_params_dict)
-
-        return output_dict
+    def forward(self, **params):
+        return params
 
     def get_entropy(self, x_dict={}, sum_features=True, feature_dims=None):
         _x_dict = get_dict_values(x_dict, self._cond_var, return_dict=True)
@@ -817,9 +794,6 @@ class DistributionBase(Distribution):
     def sample_variance(self, x_dict={}):
         self.set_dist(x_dict)
         return self.dist.variance
-
-    def forward(self, **params):
-        return params
 
 
 class MultiplyDistribution(Distribution):

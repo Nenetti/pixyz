@@ -26,20 +26,22 @@ class Model(object):
     ...         super().__init__(cond_var=["x"], var=["z"], name="q")
     ...         self.model_loc = torch.nn.Linear(128, 64)
     ...         self.model_scale = torch.nn.Linear(128, 64)
-    ...     def forward(self, x):
+    ...     def forward(self, x, **kwargs):
     ...         return {"loc": self.model_loc(x), "scale": F.softplus(self.model_scale(x))}
     ...
     >>> class Generator(Bernoulli):
     ...     def __init__(self):
     ...         super().__init__(cond_var=["z"], var=["x"], name="p")
     ...         self.model = torch.nn.Linear(64, 128)
-    ...     def forward(self, z):
+    ...     def forward(self, z, **kwargs):
     ...         return {"probs": torch.sigmoid(self.model(z))}
     ...
     >>> p = Generator()
     >>> q = Inference()
-    >>> prior = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.),
-    ...                var=["z"], features_shape=[64], name="p_{prior}")
+    >>> class NormalPrior(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 64), 'scale': torch.ones(1, 64)}
+    >>> prior = NormalPrior(var=["z"], features_shape=[64], name="p_{prior}")
     ...
     >>> # Define a loss function (Loss API)
     >>> reconst = StochasticReconstructionLoss(q, p)

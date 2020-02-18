@@ -87,7 +87,7 @@ class TransformedDistribution(Distribution):
 
         return log_prob_prior - self.logdet_jacobian
 
-    def forward(self, x, y=None, compute_jacobian=True):
+    def forward(self, x, y=None, compute_jacobian=True, **kwargs):
         """
         Forward propagation of flow layers.
 
@@ -241,7 +241,7 @@ class InverseTransformedDistribution(Distribution):
 
         return log_prob_prior + self.logdet_jacobian
 
-    def forward(self, x, y=None, compute_jacobian=True):
+    def forward(self, x, y=None, compute_jacobian=True, **kwargs):
         """
         Forward propagation of flow layers.
 

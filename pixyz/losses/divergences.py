@@ -20,8 +20,14 @@ def KullbackLeibler(p, q, input_var=None, dim=None, analytical=True, sample_shap
     --------
     >>> import torch
     >>> from pixyz.distributions import Normal, Beta
-    >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["z"], features_shape=[64], name="p")
-    >>> q = Normal(loc=torch.tensor(1.), scale=torch.tensor(1.), var=["z"], features_shape=[64], name="q")
+    >>> class NormalP(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 64), 'scale': torch.ones(1, 64)}
+    >>> p = NormalP(var=["z"], features_shape=[64], name="p")
+    >>> class NormalQ(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.ones(1, 64), 'scale': torch.ones(1, 64)}
+    >>> q = NormalQ(var=["z"], features_shape=[64], name="q")
     >>> loss_cls = KullbackLeibler(p, q, analytical=True)
     >>> print(loss_cls)
     D_{KL} \left[p(z)||q(z) \right]

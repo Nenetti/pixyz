@@ -18,7 +18,10 @@ def Entropy(p, input_var=None, analytical=True, sample_shape=torch.Size([1])):
     --------
     >>> import torch
     >>> from pixyz.distributions import Normal
-    >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"], features_shape=[64])
+    >>> class NormalP(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 64), 'scale': torch.ones(1, 64)}
+    >>> p = NormalP(var=["x"], features_shape=[64])
     >>> loss_cls = Entropy(p, analytical=True)
     >>> print(loss_cls)
     H \left[ {p(x)} \right]
@@ -76,8 +79,14 @@ def CrossEntropy(p, q, input_var=None, analytical=False, sample_shape=torch.Size
     --------
     >>> import torch
     >>> from pixyz.distributions import Normal
-    >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"], features_shape=[64], name="p")
-    >>> q = Normal(loc=torch.tensor(1.), scale=torch.tensor(1.), var=["x"], features_shape=[64], name="q")
+    >>> class NormalP(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 64), 'scale': torch.ones(1, 64)}
+    >>> p = NormalP(var=["x"], features_shape=[64], name="p")
+    >>> class NormalQ(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.ones(1, 64), 'scale': torch.ones(1, 64)}
+    >>> q = NormalQ(var=["x"], features_shape=[64], name="q")
     >>> loss_cls = CrossEntropy(p, q, analytical=True)
     >>> print(loss_cls)
     D_{KL} \left[p(x)||q(x) \right] + H \left[ {p(x)} \right]
@@ -115,8 +124,14 @@ def StochasticReconstructionLoss(encoder, decoder, input_var=None, sample_shape=
     --------
     >>> import torch
     >>> from pixyz.distributions import Normal
-    >>> q = Normal(loc="x", scale=torch.tensor(1.), var=["z"], cond_var=["x"], features_shape=[64], name="q") # q(z|x)
-    >>> p = Normal(loc="z", scale=torch.tensor(1.), var=["x"], cond_var=["z"], features_shape=[64], name="p") # p(x|z)
+    >>> class NormalQ(Normal):
+    ...     def forward(self, x, **kwargs):
+    ...         return {'loc': x, 'scale': torch.ones(1, 64)}
+    >>> q = NormalQ(var=["z"], cond_var=["x"], features_shape=[64], name="q") # q(z|x)
+    >>> class NormalP(Normal):
+    ...     def forward(self, z, **kwargs):
+    ...         return {'loc': z, 'scale': torch.ones(1, 64)}
+    >>> p = NormalP(var=["x"], cond_var=["z"], features_shape=[64], name="p") # p(x|z)
     >>> loss_cls = StochasticReconstructionLoss(q, p)
     >>> print(loss_cls)
     - \mathbb{E}_{q(z|x)} \left[\log p(x|z) \right]

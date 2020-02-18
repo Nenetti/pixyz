@@ -15,8 +15,10 @@ class LogProb(Loss):
     --------
     >>> import torch
     >>> from pixyz.distributions import Normal
-    >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-    ...            features_shape=[10])
+    >>> class NormalP(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+    >>> p = NormalP(var=["x"], features_shape=[10])
     >>> loss_cls = LogProb(p)  # or p.log_prob()
     >>> print(loss_cls)
     \log p(x)
@@ -55,8 +57,10 @@ class Prob(LogProb):
     --------
     >>> import torch
     >>> from pixyz.distributions import Normal
-    >>> p = Normal(loc=torch.tensor(0.), scale=torch.tensor(1.), var=["x"],
-    ...            features_shape=[10])
+    >>> class NormalP(Normal):
+    ...     def forward(self, **kwargs):
+    ...         return {'loc': torch.zeros(1, 10), 'scale': torch.ones(1, 10)}
+    >>> p = NormalP(var=["x"], features_shape=[10])
     >>> loss_cls = Prob(p)  # or p.prob()
     >>> print(loss_cls)
     p(x)
