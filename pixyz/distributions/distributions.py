@@ -4,7 +4,7 @@ import re
 from torch import nn
 from copy import deepcopy
 
-from ..utils import get_dict_values, replace_dict_keys, replace_dict_keys_split, delete_dict_values,\
+from ..utils import get_dict_values, replace_dict_keys, replace_dict_keys_split, delete_dict_values, \
     tolist, sum_samples, convert_latex_name
 from ..losses import LogProb, Prob
 
@@ -631,6 +631,7 @@ class DistributionBase(Distribution):
 
         self._set_buffers(**kwargs)
         self._dist = None
+        self._params = {}
 
     def _set_buffers(self, **params_dict):
         """Format constant parameters of this distribution as buffers.
@@ -691,6 +692,11 @@ class DistributionBase(Distribution):
         """Return the instance of PyTorch distribution."""
         return self._dist
 
+    @property
+    def params(self):
+        """Return the result of all variables."""
+        return self._params
+
     def set_dist(self, x_dict={}, sampling=False, batch_n=None, **kwargs):
         """Set :attr:`dist` as PyTorch distributions given parameters.
 
@@ -712,6 +718,8 @@ class DistributionBase(Distribution):
 
         """
         params = self.get_params(x_dict, **kwargs)
+        self._params.update(x_dict)
+        self._params.update(params)
         if set(self.params_keys) != set(params.keys()):
             raise ValueError(f"{type(self)} class requires following parameters:"
                              f" {set(self.params_keys)}\n"
@@ -1175,10 +1183,10 @@ class MarginalizeVarDistribution(Distribution):
         _var = deepcopy(p.var)
         _cond_var = deepcopy(p.cond_var)
 
-        if not((set(marginalize_list)) < set(_var)):
+        if not ((set(marginalize_list)) < set(_var)):
             raise ValueError("marginalize_list has unknown variables or it has all of variables of `p`.")
 
-        if not((set(marginalize_list)).isdisjoint(set(_cond_var))):
+        if not ((set(marginalize_list)).isdisjoint(set(_cond_var))):
             raise ValueError("Conditional variables can not be marginalized.")
 
         if len(marginalize_list) == 0:
