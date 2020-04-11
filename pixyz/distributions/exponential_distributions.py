@@ -104,9 +104,9 @@ class FactorizedBernoulli(Bernoulli):
     def distribution_name(self):
         return "FactorizedBernoulli"
 
-    def get_log_prob(self, x_dict):
-        log_prob = super().get_log_prob(x_dict, sum_features=False)
-        [_x] = get_dict_values(x_dict, self._var)
+    def get_log_prob(self, variables):
+        log_prob = super().get_log_prob(variables, sum_features=False)
+        [_x] = get_dict_values(variables, self._var)
         log_prob[_x == 0] = 0
         log_prob = sum_samples(log_prob)
         return log_prob
@@ -171,12 +171,12 @@ class RelaxedCategorical(Categorical):
             else:
                 raise ValueError()
 
-    def sample_mean(self, x_dict={}):
-        self.set_dist(x_dict, sampling=False)
+    def sample_mean(self, variables={}):
+        self.set_dist(variables, sampling=False)
         return self.dist.mean
 
-    def sample_variance(self, x_dict={}):
-        self.set_dist(x_dict, sampling=False)
+    def sample_variance(self, variables={}):
+        self.set_dist(variables, sampling=False)
         return self.dist.variance
 
 

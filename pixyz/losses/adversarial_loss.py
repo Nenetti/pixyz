@@ -226,20 +226,20 @@ class AdversarialJensenShannon(AdversarialLoss):
         return sympy.Symbol("mean(D_{{JS}}^{{Adv}} \\left[{}||{} \\right])".format(self.p.prob_text,
                                                                                    self.q.prob_text))
 
-    def _get_eval(self, x_dict, discriminator=False, **kwargs):
-        batch_n = self._get_batch_n(x_dict)
+    def _get_eval(self, variables, discriminator=False, **kwargs):
+        batch_n = self._get_batch_n(variables)
 
         # sample x_p from p
-        x_p_dict = get_dict_values(self.p.sample(x_dict, batch_n=batch_n), self.d.input_var, True)
+        x_p_dict = get_dict_values(self.p.sample(variables, batch_n=batch_n), self.d.input_var, True)
         # sample x_q from q
-        x_q_dict = get_dict_values(self.q.sample(x_dict, batch_n=batch_n), self.d.input_var, True)
+        x_q_dict = get_dict_values(self.q.sample(variables, batch_n=batch_n), self.d.input_var, True)
         if discriminator:
             # sample y_p from d
             y_p = get_dict_values(self.d.sample(detach_dict(x_p_dict)), self.d.var)[0]
             # sample y_q from d
             y_q = get_dict_values(self.d.sample(detach_dict(x_q_dict)), self.d.var)[0]
 
-            return self.d_loss(y_p, y_q, batch_n), x_dict
+            return self.d_loss(y_p, y_q, batch_n), variables
 
         # sample y_p from d
         y_p_dict = self.d.sample(x_p_dict)
@@ -249,7 +249,7 @@ class AdversarialJensenShannon(AdversarialLoss):
         y_p = get_dict_values(y_p_dict, self.d.var)[0]
         y_q = get_dict_values(y_q_dict, self.d.var)[0]
 
-        return self.g_loss(y_p, y_q, batch_n), x_dict
+        return self.g_loss(y_p, y_q, batch_n), variables
 
     def d_loss(self, y_p, y_q, batch_n):
         # set labels
@@ -387,27 +387,27 @@ class AdversarialKullbackLeibler(AdversarialLoss):
         return sympy.Symbol("mean(D_{{KL}}^{{Adv}} \\left[{}||{} \\right])".format(self.p.prob_text,
                                                                                    self.q.prob_text))
 
-    def _get_eval(self, x_dict, discriminator=False, **kwargs):
-        batch_n = self._get_batch_n(x_dict)
+    def _get_eval(self, variables, discriminator=False, **kwargs):
+        batch_n = self._get_batch_n(variables)
 
         # sample x_p from p
-        x_p_dict = get_dict_values(self.p.sample(x_dict, batch_n=batch_n), self.d.input_var, True)
+        x_p_dict = get_dict_values(self.p.sample(variables, batch_n=batch_n), self.d.input_var, True)
 
         if discriminator:
             # sample x_q from q
-            x_q_dict = get_dict_values(self.q.sample(x_dict, batch_n=batch_n), self.d.input_var, True)
+            x_q_dict = get_dict_values(self.q.sample(variables, batch_n=batch_n), self.d.input_var, True)
 
             # sample y_p from d
             y_p = get_dict_values(self.d.sample(detach_dict(x_p_dict)), self.d.var)[0]
             # sample y_q from d
             y_q = get_dict_values(self.d.sample(detach_dict(x_q_dict)), self.d.var)[0]
 
-            return self.d_loss(y_p, y_q, batch_n), x_dict
+            return self.d_loss(y_p, y_q, batch_n), variables
 
         # sample y from d
         y_p = get_dict_values(self.d.sample(x_p_dict), self.d.var)[0]
 
-        return self.g_loss(y_p, batch_n), x_dict
+        return self.g_loss(y_p, batch_n), variables
 
     def g_loss(self, y_p, batch_n):
         """Evaluate a generator loss given an output of the discriminator.

@@ -119,9 +119,9 @@ class IterativeLoss(Loss):
     def slice_step_fn(self, t, x):
         return {k: v[t] for k, v in x.items()}
 
-    def _get_eval(self, x_dict, **kwargs):
-        series_x_dict = get_dict_values(x_dict, self.series_var, return_dict=True)
-        updated_x_dict = get_dict_values(x_dict, list(self.update_value.values()), return_dict=True)
+    def _get_eval(self, variables, **kwargs):
+        series_x_dict = get_dict_values(variables, self.series_var, return_dict=True)
+        updated_x_dict = get_dict_values(variables, list(self.update_value.values()), return_dict=True)
 
         step_loss_sum = 0
 
@@ -138,25 +138,25 @@ class IterativeLoss(Loss):
 
         for t in range(max_iter):
             if self.slice_step:
-                x_dict.update({self.timestep_var[0]: t})
+                variables.update({self.timestep_var[0]: t})
             else:
                 # update series inputs & use slice_step_fn
-                x_dict.update(self.slice_step_fn(t, series_x_dict))
+                variables.update(self.slice_step_fn(t, series_x_dict))
 
             # evaluate
-            step_loss, samples = self.step_loss.eval(x_dict, return_dict=True)
-            x_dict.update(samples)
+            step_loss, samples = self.step_loss.eval(variables, return_dict=True)
+            variables.update(samples)
             if mask is not None:
                 step_loss *= mask[t]
             step_loss_sum += step_loss
 
             # update
             for key, value in self.update_value.items():
-                x_dict.update({value: x_dict[key]})
+                variables.update({value: variables[key]})
 
         loss = step_loss_sum
 
         # Restore original values
-        x_dict.update(series_x_dict)
-        x_dict.update(updated_x_dict)
-        return loss, x_dict
+        variables.update(series_x_dict)
+        variables.update(updated_x_dict)
+        return loss, variables

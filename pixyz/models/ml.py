@@ -43,8 +43,8 @@ class ML(Model):
                          optimizer=optimizer, optimizer_params=optimizer_params,
                          clip_grad_norm=clip_grad_norm, clip_grad_value=clip_grad_value)
 
-    def train(self, train_x_dict={}, **kwargs):
-        return super().train(train_x_dict, **kwargs)
+    def train(self, x_dict={}, **kwargs):
+        return super().train(x_dict, **kwargs)
 
-    def test(self, test_x_dict={}, **kwargs):
-        return super().test(test_x_dict, **kwargs)
+    def test(self, x_dict={}, **kwargs):
+        return super().test(x_dict, **kwargs)

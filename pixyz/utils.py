@@ -162,8 +162,8 @@ def replace_dict_keys_split(dicts, replace_list_dict):
     Examples
     --------
     >>> replace_list_dict = {'a': 'loc'}
-    >>> x_dict = {'a': 0, 'b': 1}
-    >>> print(replace_dict_keys_split(x_dict, replace_list_dict))
+    >>> variables = {'a': 0, 'b': 1}
+    >>> print(replace_dict_keys_split(variables, replace_list_dict))
     ({'loc': 0}, {'b': 1})
 
     """

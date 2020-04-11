@@ -59,14 +59,14 @@ class AnalyticalEntropy(Loss):
         p_text = "{" + self.p.prob_text + "}"
         return sympy.Symbol("- \\mathbb{{E}}_{} \\left[{} \\right]".format(p_text, self.p.log_prob().loss_text))
 
-    def _get_eval(self, x_dict, **kwargs):
+    def _get_eval(self, variables, **kwargs):
         if not hasattr(self.p, 'distribution_torch_class'):
             raise ValueError("Entropy of this distribution cannot be evaluated, "
                              "got %s." % self.p.distribution_name)
 
-        entropy = self.p.get_entropy(x_dict)
+        entropy = self.p.get_entropy(variables)
 
-        return entropy, x_dict
+        return entropy, variables
 
 
 class CrossEntropy(SetLoss):

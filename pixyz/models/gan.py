@@ -49,12 +49,12 @@ class GAN(Model):
                          optimizer=optimizer, optimizer_params=optimizer_params,
                          clip_grad_norm=clip_grad_norm, clip_grad_value=clip_grad_value)
 
-    def train(self, train_x_dict={}, adversarial_loss=True, **kwargs):
+    def train(self, x_dict={}, adversarial_loss=True, **kwargs):
         """Train the model.
 
         Parameters
         ----------
-        train_x_dict : dict, defaults to {}
+        x_dict : dict, defaults to {}
             Input data.
         adversarial_loss : bool, defaults to True
             Whether to train the discriminator.
@@ -70,20 +70,20 @@ class GAN(Model):
 
         """
         if adversarial_loss:
-            d_loss = self.loss_cls.train(train_x_dict, **kwargs)
-        loss = super().train(train_x_dict, **kwargs)
+            d_loss = self.loss_cls.train(x_dict, **kwargs)
+        loss = super().train(x_dict, **kwargs)
 
         if adversarial_loss:
             return loss, d_loss
 
         return loss
 
-    def test(self, test_x_dict={}, adversarial_loss=True, **kwargs):
+    def test(self, x_dict={}, adversarial_loss=True, **kwargs):
         """Train the model.
 
         Parameters
         ----------
-        test_x_dict : dict, defaults to {}
+        x_dict : dict, defaults to {}
             Input data.
         adversarial_loss : bool, defaults to True
             Whether to return the discriminator loss.
@@ -98,8 +98,8 @@ class GAN(Model):
             Test loss value of the discriminator (if :attr:`adversarial_loss` is True).
 
         """
-        loss = super().test(test_x_dict, **kwargs)
+        loss = super().test(x_dict, **kwargs)
         if adversarial_loss:
-            d_loss = self.loss_cls.test(test_x_dict, **kwargs)
+            d_loss = self.loss_cls.test(x_dict, **kwargs)
             return loss, d_loss
         return loss

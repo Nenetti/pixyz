@@ -155,12 +155,12 @@ class MixtureModel(Distribution):
 
         return output_dict
 
-    def get_log_prob(self, x_dict, return_hidden=False, **kwargs):
+    def get_log_prob(self, variables, return_hidden=False, **kwargs):
         """Evaluate log-pdf, log p(x) (if return_hidden=False) or log p(x, z) (if return_hidden=True).
 
         Parameters
         ----------
-        x_dict : dict
+        variables : dict
             Input variables (including `var`).
 
         return_hidden : :obj:`bool`, defaults to False
@@ -182,14 +182,14 @@ class MixtureModel(Distribution):
 
         log_prob_all = []
 
-        _device = x_dict[self._var[0]].device
+        _device = variables[self._var[0]].device
         eye_tensor = torch.eye(len(self.distributions)).to(_device)  # for prior
 
         for i, d in enumerate(self.distributions):
             # p(z=i)
             prior_log_prob = self.prior.log_prob().eval({self._hidden_var[0]: eye_tensor[i]})
             # p(x|z=i)
-            log_prob = d.log_prob().eval(x_dict)
+            log_prob = d.log_prob().eval(variables)
             # p(x, z=i)
             log_prob_all.append(log_prob + prior_log_prob)
 
@@ -238,7 +238,7 @@ class PosteriorMixtureModel(Distribution):
     def sample(self, *args, **kwargs):
         raise NotImplementedError()
 
-    def get_log_prob(self, x_dict, **kwargs):
+    def get_log_prob(self, variables, **kwargs):
         # log p(z|x) = log p(x, z) - log p(x)
-        log_prob = self.p.get_log_prob(x_dict, return_hidden=True) - self.p.get_log_prob(x_dict)
+        log_prob = self.p.get_log_prob(variables, return_hidden=True) - self.p.get_log_prob(variables)
         return log_prob  # (num_mix, batch_size)

@@ -41,22 +41,22 @@ class Deterministic(Distribution):
     def distribution_name(self):
         return "Deterministic"
 
-    def sample(self, x_dict={}, return_all=True, **kwargs):
-        x_dict = self._check_input(x_dict)
-        _x_dict = get_dict_values(x_dict, self.input_var, return_dict=True)
+    def sample(self, variables={}, return_all=True, **kwargs):
+        variables = self._check_input(variables)
+        _x_dict = get_dict_values(variables, self.input_var, return_dict=True)
         output_dict = self.forward(**_x_dict)
 
         if set(output_dict.keys()) != set(self._var):
             raise ValueError("Output variables are not the same as `var`.")
 
         if return_all:
-            x_dict.update(output_dict)
-            return x_dict
+            variables.update(output_dict)
+            return variables
 
         return output_dict
 
-    def sample_mean(self, x_dict):
-        return self.sample(x_dict, return_all=False)[self._var[0]]
+    def sample_mean(self, variables):
+        return self.sample(variables, return_all=False)[self._var[0]]
 
 
 class DataDistribution(Distribution):
@@ -87,12 +87,12 @@ class DataDistribution(Distribution):
     def distribution_name(self):
         return "Data distribution"
 
-    def sample(self, x_dict={}, **kwargs):
-        output_dict = self._check_input(x_dict)
+    def sample(self, variables={}, **kwargs):
+        output_dict = self._check_input(variables)
         return output_dict
 
-    def sample_mean(self, x_dict):
-        return self.sample(x_dict, return_all=False)[self._var[0]]
+    def sample_mean(self, variables):
+        return self.sample(variables, return_all=False)[self._var[0]]
 
     @property
     def input_var(self):

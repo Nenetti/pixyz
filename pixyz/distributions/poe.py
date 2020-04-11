@@ -151,10 +151,10 @@ class ProductOfNormal(Normal):
 
         return loc, scale
 
-    def get_params(self, params_dict={}, **kwargs):
+    def get_params(self, variables={}, **kwargs):
         # experts
-        if len(params_dict) > 0:
-            loc, scale = self._get_expert_params(params_dict, **kwargs)  # (n_expert, n_batch, output_dim)
+        if len(variables) > 0:
+            loc, scale = self._get_expert_params(variables, **kwargs)  # (n_expert, n_batch, output_dim)
         else:
             loc = torch.zeros(1)
             scale = torch.zeros(1)
@@ -230,7 +230,7 @@ class ProductOfNormal(Normal):
     def prob(self, sum_features=True, feature_dims=None):
         raise NotImplementedError()
 
-    def get_log_prob(self, x_dict, sum_features=True, feature_dims=None):
+    def get_log_prob(self, variables, sum_features=True, feature_dims=None):
         raise NotImplementedError()
 
 

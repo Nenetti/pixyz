@@ -4,8 +4,9 @@ import re
 from torch import nn
 from copy import deepcopy
 
-from ..utils import get_dict_values, replace_dict_keys, replace_dict_keys_split, delete_dict_values,\
-    tolist, sum_samples, convert_latex_name
+from pixyz.variables import Variables
+
+from ..utils import tolist, sum_samples, convert_latex_name
 from ..losses import LogProb, Prob
 
 
@@ -205,18 +206,18 @@ class Distribution(nn.Module):
                 raise ValueError("Input keys are not valid.")
             input_dict = input.copy()
 
-        else:
-            raise ValueError("The type of input is not valid, got %s." % type(input))
+        # else:
+        # raise ValueError("The type of input is not valid, got %s." % type(input))
 
         return input_dict
 
-    def get_params(self, params_dict={}):
+    def get_params(self, variables):
         """This method aims to get parameters of this distributions from constant parameters set in initialization
         and outputs of DNNs.
 
         Parameters
         ----------
-        params_dict : :obj:`dict`, defaults to {}
+        variables : :obj:`dict`, defaults to {}
             Input parameters.
 
         Returns
@@ -258,14 +259,14 @@ class Distribution(nn.Module):
         """
         raise NotImplementedError()
 
-    def sample(self, x_dict={}, batch_n=None, sample_shape=torch.Size(), return_all=True,
+    def sample(self, variables={}, batch_n=None, sample_shape=torch.Size(), return_all=True,
                reparam=False):
         """Sample variables of this distribution.
         If :attr:`cond_var` is not empty, you should set inputs as :obj:`dict`.
 
         Parameters
         ----------
-        x_dict : :obj:`torch.Tensor`, :obj:`list`, or :obj:`dict`, defaults to {}
+        variables : :obj:`torch.Tensor`, :obj:`list`, or :obj:`dict`, defaults to {}
             Input variables.
         sample_shape : :obj:`list` or :obj:`NoneType`, defaults to torch.Size()
             Shape of generating samples.
@@ -336,12 +337,12 @@ class Distribution(nn.Module):
         """
         raise NotImplementedError()
 
-    def sample_mean(self, x_dict={}):
+    def sample_mean(self, variables={}):
         """Return the mean of the distribution.
 
         Parameters
         ----------
-        x_dict : :obj:`dict`, defaults to {}
+        variables : :obj:`dict`, defaults to {}
             Parameters of this distribution.
 
         Examples
@@ -367,12 +368,12 @@ class Distribution(nn.Module):
         """
         raise NotImplementedError()
 
-    def sample_variance(self, x_dict={}):
+    def sample_variance(self, variables={}):
         """Return the variance of the distribution.
 
         Parameters
         ----------
-        x_dict : :obj:`dict`, defaults to {}
+        variables : :obj:`dict`, defaults to {}
             Parameters of this distribution.
 
         Examples
@@ -397,12 +398,12 @@ class Distribution(nn.Module):
         """
         raise NotImplementedError()
 
-    def get_log_prob(self, x_dict, sum_features=True, feature_dims=None):
+    def get_log_prob(self, variables, sum_features=True, feature_dims=None):
         """Giving variables, this method returns values of log-pdf.
 
         Parameters
         ----------
-        x_dict : dict
+        variables : dict
             Input variables.
         sum_features : :obj:`bool`, defaults to True
             Whether the output is summed across some dimensions which are specified by `feature_dims`.
@@ -437,12 +438,12 @@ class Distribution(nn.Module):
         """
         raise NotImplementedError()
 
-    def get_entropy(self, x_dict={}, sum_features=True, feature_dims=None):
+    def get_entropy(self, variables={}, sum_features=True, feature_dims=None):
         """Giving variables, this method returns values of entropy.
 
         Parameters
         ----------
-        x_dict : dict, defaults to {}
+        variables : dict, defaults to {}
             Input variables.
         sum_features : :obj:`bool`, defaults to True
             Whether the output is summed across some dimensions which are specified by :attr:`feature_dims`.
@@ -629,6 +630,7 @@ class DistributionBase(Distribution):
     def __init__(self, cond_var=[], var=["x"], name="p", features_shape=torch.Size(), **kwargs):
         super().__init__(cond_var=cond_var, var=var, name=name, features_shape=features_shape)
 
+        self.buffers = {}
         self._set_buffers(**kwargs)
         self._dist = None
 
@@ -644,7 +646,6 @@ class DistributionBase(Distribution):
             these parameters are stored as :obj:`dict` (:attr:`replace_params_dict`).
 
         """
-
         self.replace_params_dict = {}
 
         for key in params_dict.keys():
@@ -657,7 +658,8 @@ class DistributionBase(Distribution):
             elif isinstance(params_dict[key], torch.Tensor):
                 features = params_dict[key]
                 features_checked = self._check_features_shape(features)
-                self.register_buffer(key, features_checked)
+                self.buffers[key] = features_checked
+                # self.register_buffer(key, features_checked)
             else:
                 raise ValueError()
 
@@ -691,7 +693,7 @@ class DistributionBase(Distribution):
         """Return the instance of PyTorch distribution."""
         return self._dist
 
-    def set_dist(self, x_dict={}, sampling=False, batch_n=None, **kwargs):
+    def set_dist(self, x_dict, sampling=False, batch_n=None, **kwargs):
         """Set :attr:`dist` as PyTorch distributions given parameters.
 
         This requires that :attr:`params_keys` and :attr:`distribution_torch_class` are set.
@@ -753,36 +755,36 @@ class DistributionBase(Distribution):
                 raise ValueError("You cannot use the re-parameterization trick for this distribution.")
         else:
             _samples = self.dist.sample(sample_shape=sample_shape)
-        samples_dict = {self._var[0]: _samples}
+        samples_dict = Variables(**{self._var[0]: _samples})
 
         return samples_dict
 
-    def get_log_prob(self, x_dict, sum_features=True, feature_dims=None):
-        _x_dict = get_dict_values(x_dict, self._cond_var, return_dict=True)
-        self.set_dist(_x_dict, sampling=False)
+    def get_log_prob(self, variables, sum_features=True, feature_dims=None):
+        _variables = variables.get_variables(self._cond_var)
+        self.set_dist(_variables, sampling=False)
 
-        x_targets = get_dict_values(x_dict, self._var)
+        x_targets = variables.get_values(self._var)
         log_prob = self.dist.log_prob(*x_targets)
         if sum_features:
             log_prob = sum_samples(log_prob)
 
         return log_prob
 
-    def get_params(self, params_dict={}):
-        params_dict, vars_dict = replace_dict_keys_split(params_dict, self.replace_params_dict)
+    def get_params(self, variables):
+        variables, vars_dict = variables.replace_dict_keys_split(self.replace_params_dict)
         output_dict = self.forward(**vars_dict)
 
-        output_dict.update(params_dict)
+        output_dict.update(variables)
 
         # append constant parameters to output_dict
-        constant_params_dict = get_dict_values(dict(self.named_buffers()), self.params_keys, return_dict=True)
+        constant_params_dict = Variables(**self.buffers).get_variables(self.params_keys)
         output_dict.update(constant_params_dict)
 
         return output_dict
 
-    def get_entropy(self, x_dict={}, sum_features=True, feature_dims=None):
-        _x_dict = get_dict_values(x_dict, self._cond_var, return_dict=True)
-        self.set_dist(_x_dict, sampling=False)
+    def get_entropy(self, variables, sum_features=True, feature_dims=None):
+        _variables = variables.get_dict_values(self._cond_var)
+        self.set_dist(_variables, sampling=False)
 
         entropy = self.dist.entropy()
         if sum_features:
@@ -790,31 +792,31 @@ class DistributionBase(Distribution):
 
         return entropy
 
-    def sample(self, x_dict={}, batch_n=None, sample_shape=torch.Size(), return_all=True, reparam=False):
+    def sample(self, variables, batch_n=None, sample_shape=torch.Size(), return_all=True, reparam=False):
         # check whether the input is valid or convert it to valid dictionary.
-        x_dict = self._check_input(x_dict)
-        input_dict = {}
+        # variables = self._check_input(variables)
+        input_dict = Variables()
 
         # conditioned
         if len(self.input_var) != 0:
-            input_dict.update(get_dict_values(x_dict, self.input_var, return_dict=True))
+            input_dict.update(variables.get_variables(self.input_var))
 
         self.set_dist(input_dict, batch_n=batch_n)
         output_dict = self.get_sample(reparam=reparam,
                                       sample_shape=sample_shape)
 
         if return_all:
-            x_dict.update(output_dict)
-            return x_dict
+            variables.update(output_dict)
+            return variables
 
         return output_dict
 
-    def sample_mean(self, x_dict={}):
-        self.set_dist(x_dict)
+    def sample_mean(self, variables):
+        self.set_dist(variables)
         return self.dist.mean
 
-    def sample_variance(self, x_dict={}):
-        self.set_dist(x_dict)
+    def sample_variance(self, variables):
+        self.set_dist(variables)
         return self.dist.variance
 
     def forward(self, **params):
@@ -957,24 +959,24 @@ class MultiplyDistribution(Distribution):
     def prob_factorized_text(self):
         return self._child.prob_factorized_text + self._parent.prob_factorized_text
 
-    def sample(self, x_dict={}, batch_n=None, return_all=True, reparam=False, **kwargs):
+    def sample(self, variables, batch_n=None, return_all=True, reparam=False, **kwargs):
         # sample from the parent distribution
-        parents_x_dict = x_dict
-        child_x_dict = self._parent.sample(x_dict=parents_x_dict, batch_n=batch_n,
+        parents_x_dict = variables
+        child_x_dict = self._parent.sample(variables=parents_x_dict, batch_n=batch_n,
                                            return_all=True, reparam=reparam)
         # sample from the child distribution
-        output_dict = self._child.sample(x_dict=child_x_dict, batch_n=batch_n,
+        output_dict = self._child.sample(variables=child_x_dict, batch_n=batch_n,
                                          return_all=True, reparam=reparam)
 
         if return_all is False:
-            output_dict = get_dict_values(output_dict, self._var, return_dict=True)
+            output_dict = output_dict.get_vaiables(self._var)
             return output_dict
 
         return output_dict
 
-    def get_log_prob(self, x_dict, sum_features=True, feature_dims=None):
-        parent_log_prob = self._parent.get_log_prob(x_dict, sum_features=sum_features, feature_dims=feature_dims)
-        child_log_prob = self._child.get_log_prob(x_dict, sum_features=sum_features, feature_dims=feature_dims)
+    def get_log_prob(self, variables, sum_features=True, feature_dims=None):
+        parent_log_prob = self._parent.get_log_prob(variables, sum_features=sum_features, feature_dims=feature_dims)
+        child_log_prob = self._child.get_log_prob(variables, sum_features=sum_features, feature_dims=feature_dims)
 
         if sum_features:
             return parent_log_prob + child_log_prob
@@ -1065,38 +1067,38 @@ class ReplaceVarDistribution(Distribution):
     def forward(self, *args, **kwargs):
         return self.p.forward(*args, **kwargs)
 
-    def get_params(self, params_dict={}):
-        params_dict = replace_dict_keys(params_dict, self._replace_inv_cond_var_dict)
-        return self.p.get_params(params_dict)
+    def get_params(self, variables):
+        variables = variables.get_variables(self._replace_inv_cond_var_dict)
+        return self.p.get_params(variables)
 
-    def set_dist(self, x_dict={}, sampling=False, batch_n=None, **kwargs):
-        x_dict = replace_dict_keys(x_dict, self._replace_inv_cond_var_dict)
-        return self.p.set_dist(x_dict=x_dict, sampling=sampling, batch_n=batch_n, **kwargs)
+    def set_dist(self, variables, sampling=False, batch_n=None, **kwargs):
+        variables = variables.replace_dict_keys(self._replace_inv_cond_var_dict)
+        return self.p.set_dist(variables=variables, sampling=sampling, batch_n=batch_n, **kwargs)
 
-    def sample(self, x_dict={}, batch_n=None, sample_shape=torch.Size(), return_all=True, reparam=False, **kwargs):
-        input_dict = get_dict_values(x_dict, self.cond_var, return_dict=True)
-        replaced_input_dict = replace_dict_keys(input_dict, self._replace_inv_cond_var_dict)
+    def sample(self, variables, batch_n=None, sample_shape=torch.Size(), return_all=True, reparam=False, **kwargs):
+        input_dict = variables.get_variables(self.cond_var)
+        replaced_input_dict = input_dict.replace_dict_keys(self._replace_inv_cond_var_dict)
 
         output_dict = self.p.sample(replaced_input_dict, batch_n=batch_n, sample_shape=sample_shape,
                                     return_all=False, reparam=reparam, **kwargs)
-        output_dict = replace_dict_keys(output_dict, self._replace_dict)
+        output_dict = output_dict.replace_dict_keys(self._replace_dict)
 
-        x_dict.update(output_dict)
-        return x_dict
+        variables.update(output_dict)
+        return variables
 
-    def get_log_prob(self, x_dict, **kwargs):
-        input_dict = get_dict_values(x_dict, self.cond_var + self.var, return_dict=True)
-        input_dict = replace_dict_keys(input_dict, self._replace_inv_dict)
+    def get_log_prob(self, variables, **kwargs):
+        input_dict = variables.get_variables(self.cond_var + self.var)
+        input_dict = input_dict.replace_dict_keys(self._replace_inv_dict)
         return self.p.get_log_prob(input_dict, **kwargs)
 
-    def sample_mean(self, x_dict={}):
-        input_dict = get_dict_values(x_dict, self.cond_var, return_dict=True)
-        input_dict = replace_dict_keys(input_dict, self._replace_inv_cond_var_dict)
+    def sample_mean(self, variables):
+        input_dict = variables.get_variables(self.cond_var)
+        input_dict = input_dict.replace_dict_keys(self._replace_inv_cond_var_dict)
         return self.p.sample_mean(input_dict)
 
-    def sample_variance(self, x_dict={}):
-        input_dict = get_dict_values(x_dict, self.cond_var, return_dict=True)
-        input_dict = replace_dict_keys(input_dict, self._replace_inv_cond_var_dict)
+    def sample_variance(self, variables):
+        input_dict = variables.get_variables(self.cond_var)
+        input_dict = input_dict.replace_dict_keys(self._replace_inv_cond_var_dict)
         return self.p.sample_variance(input_dict)
 
     @property
@@ -1175,10 +1177,10 @@ class MarginalizeVarDistribution(Distribution):
         _var = deepcopy(p.var)
         _cond_var = deepcopy(p.cond_var)
 
-        if not((set(marginalize_list)) < set(_var)):
+        if not ((set(marginalize_list)) < set(_var)):
             raise ValueError("marginalize_list has unknown variables or it has all of variables of `p`.")
 
-        if not((set(marginalize_list)).isdisjoint(set(_cond_var))):
+        if not ((set(marginalize_list)).isdisjoint(set(_cond_var))):
             raise ValueError("Conditional variables can not be marginalized.")
 
         if len(marginalize_list) == 0:
@@ -1193,21 +1195,21 @@ class MarginalizeVarDistribution(Distribution):
     def forward(self, *args, **kwargs):
         return self.p.forward(*args, **kwargs)
 
-    def get_params(self, params_dict={}):
-        return self.p.get_params(params_dict)
+    def get_params(self, variables={}):
+        return self.p.get_params(variables)
 
-    def sample(self, x_dict={}, batch_n=None, sample_shape=torch.Size(), return_all=True, reparam=False, **kwargs):
-        output_dict = self.p.sample(x_dict=x_dict, batch_n=batch_n, sample_shape=sample_shape, return_all=return_all,
+    def sample(self, variables, batch_n=None, sample_shape=torch.Size(), return_all=True, reparam=False, **kwargs):
+        output_dict = self.p.sample(variables=variables, batch_n=batch_n, sample_shape=sample_shape, return_all=return_all,
                                     reparam=reparam, **kwargs)
-        output_dict = delete_dict_values(output_dict, self._marginalize_list)
+        output_dict = output_dict.delete_dict_values(self._marginalize_list)
 
         return output_dict
 
-    def sample_mean(self, x_dict={}):
-        return self.p.sample_mean(x_dict)
+    def sample_mean(self, variables={}):
+        return self.p.sample_mean(variables)
 
-    def sample_variance(self, x_dict={}):
-        return self.p.sample_variance(x_dict)
+    def sample_variance(self, variables={}):
+        return self.p.sample_variance(variables)
 
     @property
     def input_var(self):
