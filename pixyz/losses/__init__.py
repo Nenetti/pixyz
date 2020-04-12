@@ -25,6 +25,7 @@ from .adversarial_loss import (
 )
 
 from .losses import (
+    Loss,
     Parameter,
     Expectation,
 )
@@ -42,6 +43,7 @@ from .wasserstein import (
 )
 
 __all__ = [
+    "Loss",
     'Parameter',
     'CrossEntropy',
     'Entropy',

@@ -783,7 +783,7 @@ class DistributionBase(Distribution):
         return output_dict
 
     def get_entropy(self, variables, sum_features=True, feature_dims=None):
-        _variables = variables.get_dict_values(self._cond_var)
+        _variables = variables.get_variables(self._cond_var)
         self.set_dist(_variables, sampling=False)
 
         entropy = self.dist.entropy()

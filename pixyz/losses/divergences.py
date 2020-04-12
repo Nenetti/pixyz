@@ -22,11 +22,11 @@ class KullbackLeibler(Loss):
                 f"got {self.p.distribution_name} and {self.q.distribution_name}."
             )
 
-        input_dict = variables.get_variables(self.p.input_var)
-        self.p.set_dist(input_dict)
+        input_p = variables.get_variables(self.p.input_var)
+        self.p.set_dist(input_p)
 
-        input_dict = variables.get_variables(self.q.input_var)
-        self.q.set_dist(input_dict)
+        input_q = variables.get_variables(self.q.input_var)
+        self.q.set_dist(input_q)
 
         divergence = kl_divergence(self.p.dist, self.q.dist)
 
@@ -37,3 +37,6 @@ class KullbackLeibler(Loss):
         dim_list = list(torch.arange(divergence.dim()))
         divergence = torch.sum(divergence, dim=dim_list[1:])
         return divergence, variables
+
+    def print_arithmetic(self, n=0):
+        return f"\n{' ' * n}{self.__class__.__name__}({self.p.name}, {self.q.name})"

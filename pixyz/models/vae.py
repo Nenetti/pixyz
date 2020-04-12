@@ -1,7 +1,9 @@
+import pixyz
 from torch import optim
 
 from ..models.model import Model
 from ..utils import tolist
+from pixyz.distributions import Distribution
 
 
 class VAE(Model):
@@ -16,6 +18,7 @@ class VAE(Model):
     ----------
     [Kingma+ 2013] Auto-Encoding Variational Bayes
     """
+
     def __init__(self, encoder, decoder,
                  other_distributions=[],
                  regularizer=None,
@@ -24,24 +27,24 @@ class VAE(Model):
                  clip_grad_norm=None,
                  clip_grad_value=None):
         """
-        Parameters
-        ----------
-        encoder : torch.distributions.Distribution
-            Encoder distribution.
-        decoder : torch.distributions.Distribution
-            Decoder distribution.
-        regularizer : torch.losses.Loss, defaults to None
-            If you want to add additional terms to the loss, set them to this argument.
-        optimizer : torch.optim
-            Optimization algorithm.
-        optimizer_params : dict
-            Parameters of optimizer
-        clip_grad_norm : float or int
-            Maximum allowed norm of the gradients.
-        clip_grad_value : float or int
-            Maximum allowed value of the gradients.
+        Args:
+            encoder (pixyz.distributions.Distribution):
+                Encoder distribution.
+            decoder (pixyz.distributions.Distribution):
+                Decoder distribution.
+            other_distributions (list[pixyz.distributions.Distribution]):
+                Other distribution.
+            regularizer (torch.losses.Loss):
+                If you want to add additional terms to the loss, set them to this argument.
+            optimizer (torch.optim):
+                Optimization algorithm.
+            optimizer_params (dict[str, object]):
+                Parameters of optimizer
+            clip_grad_norm (float):
+                Maximum allowed norm of the gradients.
+            clip_grad_value (float):
+                Maximum allowed value of the gradients.
         """
-
         # set distributions (for training)
         distributions = [encoder, decoder] + tolist(other_distributions)
 

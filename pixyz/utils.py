@@ -250,7 +250,7 @@ def print_latex(obj):
 
     if isinstance(obj, pixyz.distributions.distributions.Distribution):
         latex_text = obj.prob_joint_factorized_and_text
-    elif isinstance(obj, pixyz.losses.losses.Loss):
+    elif isinstance(obj, pixyz.losses.losses.AbstractLoss):
         latex_text = obj.loss_text
     elif isinstance(obj, pixyz.models.model.Model):
         latex_text = obj.loss_cls.loss_text

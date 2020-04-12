@@ -1,82 +1,79 @@
 from copy import deepcopy
 import sympy
 
-from .losses import Loss
+from .losses import Loss, AbstractLoss
 from ..utils import get_dict_values
+from ..variables import Variables
 
 
 class IterativeLoss(Loss):
-    r"""
+    """
     Iterative loss.
-
     This class allows implementing an arbitrary model which requires iteration.
 
     .. math::
-
         \mathcal{L} = \sum_{t=1}^{T}\mathcal{L}_{step}(x_t, h_t),
 
-    where :math:`x_t = f_{slice\_step}(x, t)`.
+        where :math:`x_t = f_{slice\_step}(x, t)`.
 
-    Examples
-    --------
-    >>> import torch
-    >>> from torch.nn import functional as F
-    >>> from pixyz.distributions import Normal, Bernoulli, Deterministic
-    >>>
-    >>> # Set distributions
-    >>> x_dim = 128
-    >>> z_dim = 64
-    >>> h_dim = 32
-    >>>
-    >>> # p(x|z,h_{prev})
-    >>> class Decoder(Bernoulli):
-    ...     def __init__(self):
-    ...         super().__init__(cond_var=["z", "h_prev"], var=["x"], name="p")
-    ...         self.fc = torch.nn.Linear(z_dim + h_dim, x_dim)
-    ...     def forward(self, z, h_prev):
-    ...         return {"probs": torch.sigmoid(self.fc(torch.cat((z, h_prev), dim=-1)))}
-    ...
-    >>> # q(z|x,h_{prev})
-    >>> class Encoder(Normal):
-    ...     def __init__(self):
-    ...         super().__init__(cond_var=["x", "h_prev"], var=["z"], name="q")
-    ...         self.fc_loc = torch.nn.Linear(x_dim + h_dim, z_dim)
-    ...         self.fc_scale = torch.nn.Linear(x_dim + h_dim, z_dim)
-    ...     def forward(self, x, h_prev):
-    ...         xh = torch.cat((x, h_prev), dim=-1)
-    ...         return {"loc": self.fc_loc(xh), "scale": F.softplus(self.fc_scale(xh))}
-    ...
-    >>> # f(h|x,z,h_{prev}) (update h)
-    >>> class Recurrence(Deterministic):
-    ...     def __init__(self):
-    ...         super().__init__(cond_var=["x", "z", "h_prev"], var=["h"], name="f")
-    ...         self.rnncell = torch.nn.GRUCell(x_dim + z_dim, h_dim)
-    ...     def forward(self, x, z, h_prev):
-    ...         return {"h": self.rnncell(torch.cat((z, x), dim=-1), h_prev)}
-    >>>
-    >>> p = Decoder()
-    >>> q = Encoder()
-    >>> f = Recurrence()
-    >>>
-    >>> # Set the loss class
-    >>> step_loss_cls = p.log_prob().expectation(q * f).mean()
-    >>> print(step_loss_cls)
-    mean \left(\mathbb{E}_{p(h,z|x,h_{prev})} \left[\log p(x|z,h_{prev}) \right] \right)
-    >>> loss_cls = IterativeLoss(step_loss=step_loss_cls,
-    ...                          series_var=["x"], update_value={"h": "h_prev"})
-    >>> print(loss_cls)
-    \sum_{t=1}^{t_{max}} mean \left(\mathbb{E}_{p(h,z|x,h_{prev})} \left[\log p(x|z,h_{prev}) \right] \right)
-    >>>
-    >>> # Evaluate
-    >>> x_sample = torch.randn(30, 2, 128) # (timestep_size, batch_size, feature_size)
-    >>> h_init = torch.zeros(2, 32) # (batch_size, h_dim)
-    >>> loss = loss_cls.eval({"x": x_sample, "h_prev": h_init})
-    >>> print(loss) # doctest: +SKIP
-    tensor(-2826.0906, grad_fn=<AddBackward0>
+    Examples:
+        >>> import torch
+        >>> from torch.nn import functional as F
+        >>> from pixyz.distributions import Normal, Bernoulli, Deterministic
+        >>>
+        >>> # Set distributions
+        >>> x_dim = 128
+        >>> z_dim = 64
+        >>> h_dim = 32
+        >>>
+        >>> # p(x|z,h_{prev})
+        >>> class Decoder(Bernoulli):
+        ...     def __init__(self):
+        ...         super().__init__(cond_var=["z", "h_prev"], var=["x"], name="p")
+        ...         self.fc = torch.nn.Linear(z_dim + h_dim, x_dim)
+        ...     def forward(self, z, h_prev):
+        ...         return {"probs": torch.sigmoid(self.fc(torch.cat((z, h_prev), dim=-1)))}
+        ...
+        >>> # q(z|x,h_{prev})
+        >>> class Encoder(Normal):
+        ...     def __init__(self):
+        ...         super().__init__(cond_var=["x", "h_prev"], var=["z"], name="q")
+        ...         self.fc_loc = torch.nn.Linear(x_dim + h_dim, z_dim)
+        ...         self.fc_scale = torch.nn.Linear(x_dim + h_dim, z_dim)
+        ...     def forward(self, x, h_prev):
+        ...         xh = torch.cat((x, h_prev), dim=-1)
+        ...         return {"loc": self.fc_loc(xh), "scale": F.softplus(self.fc_scale(xh))}
+        ...
+        >>> # f(h|x,z,h_{prev}) (update h)
+        >>> class Recurrence(Deterministic):
+        ...     def __init__(self):
+        ...         super().__init__(cond_var=["x", "z", "h_prev"], var=["h"], name="f")
+        ...         self.rnncell = torch.nn.GRUCell(x_dim + z_dim, h_dim)
+        ...     def forward(self, x, z, h_prev):
+        ...         return {"h": self.rnncell(torch.cat((z, x), dim=-1), h_prev)}
+        >>>
+        >>> p = Decoder()
+        >>> q = Encoder()
+        >>> f = Recurrence()
+        >>>
+        >>> # Set the loss class
+        >>> step_loss_cls = p.log_prob().expectation(q * f).mean()
+        >>> print(step_loss_cls)
+        mean \left(\mathbb{E}_{p(h,z|x,h_{prev})} \left[\log p(x|z,h_{prev}) \right] \right)
+        >>> loss_cls = IterativeLoss(step_loss=step_loss_cls,
+        ...                          series_var=["x"], update_value={"h": "h_prev"})
+        >>> print(loss_cls)
+        \sum_{t=1}^{t_{max}} mean \left(\mathbb{E}_{p(h,z|x,h_{prev})} \left[\log p(x|z,h_{prev}) \right] \right)
+        >>>
+        >>> # Evaluate
+        >>> x_sample = torch.randn(30, 2, 128) # (timestep_size, batch_size, feature_size)
+        >>> h_init = torch.zeros(2, 32) # (batch_size, h_dim)
+        >>> loss = loss_cls.eval({"x": x_sample, "h_prev": h_init})
+        >>> print(loss) # doctest: +SKIP
+        tensor(-2826.0906, grad_fn=<AddBackward0>
     """
 
-    def __init__(self, step_loss, max_iter=None,
-                 input_var=None, series_var=None, update_value={}, slice_step=None, timestep_var=["t"]):
+    def __init__(self, step_loss, max_iter=None, input_var=None, series_var=None, update_value={}, slice_step=None, timestep_var=["t"]):
         self.step_loss = step_loss
         self.max_iter = max_iter
         self.update_value = update_value
@@ -120,8 +117,8 @@ class IterativeLoss(Loss):
         return {k: v[t] for k, v in x.items()}
 
     def _get_eval(self, variables, **kwargs):
-        series_x_dict = get_dict_values(variables, self.series_var, return_dict=True)
-        updated_x_dict = get_dict_values(variables, list(self.update_value.values()), return_dict=True)
+        series_x_dict = variables.get_variables(self.series_var)
+        updated_x_dict = variables.get_variables(list(self.update_value.values()))
 
         step_loss_sum = 0
 
@@ -160,3 +157,41 @@ class IterativeLoss(Loss):
         variables.update(series_x_dict)
         variables.update(updated_x_dict)
         return loss, variables
+
+
+class SummativeRecurrentLoss(AbstractLoss):
+    """
+    Iterative loss.
+    This class allows implementing an arbitrary model which requires iteration.
+
+    .. math::
+        \mathcal{L} = \sum_{t=1}^{T}\mathcal{L}_{step}(x_t, h_t),
+
+        where :math:`x_t = f_{slice\_step}(x, t)`.
+    """
+
+    def __init__(self, loss, max_iter):
+        self.loss = loss
+        self.max_iter = max_iter
+        self.iter = 0
+
+        _input_var = []
+        _input_var += deepcopy(self.loss.input_var)
+
+        self._input_var = sorted(set(_input_var), key=_input_var.index)
+
+    @property
+    def _symbol(self):
+        return sympy.Symbol(f"\sum_{{t=0}}^{{{self.max_iter}}}{self.loss._symbol}")
+
+    def _get_eval(self, variables, **kwargs):
+        input_var = variables.get_variables(self._input_var)
+
+        loss, samples = self.loss.eval(input_var, return_dict=True)
+
+        variables.update(samples)
+        self.iter += 1
+        return loss, variables
+
+    def print_arithmetic(self, n=2):
+        return f"\n{' ' * n}{self.__class__.__name__}({self.loss.print_arithmetic(n + 2)}\n{' ' * n})"
