@@ -40,7 +40,7 @@ class Model(object):
         self.clip_norm = clip_grad_norm
         self.clip_value = clip_grad_value
 
-    def train(self, x_dict={}, **kwargs):
+    def train(self, x_dict={}, return_dict=True, **kwargs):
         """
         Args:
             x_dict (dict): Input data.
@@ -53,7 +53,11 @@ class Model(object):
         self.distributions.train(True)
 
         self.optimizer.zero_grad()
-        loss = self.loss_cls.eval(x_dict, **kwargs)
+
+        if return_dict:
+            loss, variables = self.loss_cls.eval(x_dict, return_dict, **kwargs)
+        else:
+            loss = self.loss_cls.eval(x_dict, return_dict, **kwargs)
 
         # calc backpropagation
         loss.backward()
@@ -66,7 +70,10 @@ class Model(object):
         # update params
         self.optimizer.step()
 
-        return loss
+        if return_dict:
+            return loss, variables
+        else:
+            return loss
 
     def test(self, x_dict={}, **kwargs):
         """

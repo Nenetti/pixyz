@@ -159,7 +159,35 @@ class IterativeLoss(Loss):
         return loss, variables
 
 
-class SummativeRecurrentLoss(AbstractLoss):
+class RecurrentLoss(AbstractLoss):
+
+    def __init__(self, loss, max_iter, iter_var):
+        self.loss = loss
+        self.max_iter = max_iter
+        self.iter = 0
+        self.iter_var = iter_var
+        self.iter_variables = Variables()
+
+        _input_var = []
+        _input_var += deepcopy(self.loss.input_var)
+
+        self._input_var = sorted(set(_input_var), key=_input_var.index)
+
+    def _get_eval(self, variables, **kwargs):
+        self.iter += 1
+
+        input_var = variables.get_variables(self._input_var)
+
+        loss, samples = self.loss.eval(input_var, return_dict=True)
+
+        variables.update(samples)
+        return loss, variables
+
+    def print_arithmetic(self, n=2):
+        return f"\n{' ' * n}{self.__class__.__name__}({self.loss.print_arithmetic(n + 2)}\n{' ' * n})"
+
+
+class SummativeRecurrentLoss(RecurrentLoss):
     """
     Iterative loss.
     This class allows implementing an arbitrary model which requires iteration.
@@ -170,28 +198,117 @@ class SummativeRecurrentLoss(AbstractLoss):
         where :math:`x_t = f_{slice\_step}(x, t)`.
     """
 
-    def __init__(self, loss, max_iter):
-        self.loss = loss
-        self.max_iter = max_iter
-        self.iter = 0
-
-        _input_var = []
-        _input_var += deepcopy(self.loss.input_var)
-
-        self._input_var = sorted(set(_input_var), key=_input_var.index)
+    def __init__(self, loss, max_iter, iter_var):
+        super(SummativeRecurrentLoss, self).__init__(loss, max_iter, iter_var)
 
     @property
     def _symbol(self):
         return sympy.Symbol(f"\sum_{{t=0}}^{{{self.max_iter}}}{self.loss._symbol}")
 
-    def _get_eval(self, variables, **kwargs):
-        input_var = variables.get_variables(self._input_var)
 
-        loss, samples = self.loss.eval(input_var, return_dict=True)
+class ProductiveRecurrentLoss(RecurrentLoss):
+    """
+    Iterative loss.
+    This class allows implementing an arbitrary model which requires iteration.
 
-        variables.update(samples)
-        self.iter += 1
-        return loss, variables
+    .. math::
+        \mathcal{L} = \sum_{t=1}^{T}\mathcal{L}_{step}(x_t, h_t),
 
-    def print_arithmetic(self, n=2):
-        return f"\n{' ' * n}{self.__class__.__name__}({self.loss.print_arithmetic(n + 2)}\n{' ' * n})"
+        where :math:`x_t = f_{slice\_step}(x, t)`.
+    """
+
+    def __init__(self, loss, max_iter, iter_var={}):
+        super(ProductiveRecurrentLoss, self).__init__(loss, max_iter, iter_var)
+
+    @property
+    def _symbol(self):
+        return sympy.Symbol(f"\prod_{{t=0}}^{{{self.max_iter}}}{self.loss._symbol}")
+
+# class SummativeRecurrentLoss(AbstractLoss):
+#     """
+#     Iterative loss.
+#     This class allows implementing an arbitrary model which requires iteration.
+#
+#     .. math::
+#         \mathcal{L} = \sum_{t=1}^{T}\mathcal{L}_{step}(x_t, h_t),
+#
+#         where :math:`x_t = f_{slice\_step}(x, t)`.
+#     """
+#
+#     def __init__(self, loss, max_iter, iter_var):
+#         self.loss = loss
+#         self.max_iter = max_iter
+#         self.iter = 0
+#         self.iter_var = iter_var
+#         self.iter_variables = Variables()
+#
+#         _input_var = []
+#         _input_var += deepcopy(self.loss.input_var)
+#
+#         self._input_var = sorted(set(_input_var), key=_input_var.index)
+#
+#     @property
+#     def _symbol(self):
+#         return sympy.Symbol(f"\sum_{{t=0}}^{{{self.max_iter}}}{self.loss._symbol}")
+#
+#     def _get_eval(self, variables, **kwargs):
+#         self.iter += 1
+#
+#         input_var = variables.get_variables(self._input_var)
+#
+#         loss, samples = self.loss.eval(input_var, return_dict=True)
+#
+#         iter_var = samples.get_variables(self.iter_var).replace_dict_keys({self.iter_var: f"{self.iter_var}_{self.iter}"})
+#         self.iter_variables.update(iter_var)
+#         print(self.iter_variables.keys())
+#         # samples =
+#         samples = samples.delete_dict_values(self.iter_var)
+#         variables = variables.delete_dict_values(self.iter_var)
+#
+#         variables.update(samples)
+#         if self.iter == self.max_iter:
+#             variables.update(self.iter_variables)
+#             self.iter_variables.clear()
+#             self.iter = 0
+#         return loss, variables
+#
+#     def print_arithmetic(self, n=2):
+#         return f"\n{' ' * n}{self.__class__.__name__}({self.loss.print_arithmetic(n + 2)}\n{' ' * n})"
+#
+#
+# class ProductiveRecurrentLoss(AbstractLoss):
+#     """
+#     Iterative loss.
+#     This class allows implementing an arbitrary model which requires iteration.
+#
+#     .. math::
+#         \mathcal{L} = \sum_{t=1}^{T}\mathcal{L}_{step}(x_t, h_t),
+#
+#         where :math:`x_t = f_{slice\_step}(x, t)`.
+#     """
+#
+#     def __init__(self, loss, max_iter, iter_var={}):
+#         self.loss = loss
+#         self.max_iter = max_iter
+#         self.iter = 0
+#
+#         _input_var = []
+#         _input_var += deepcopy(self.loss.input_var)
+#
+#         self._input_var = sorted(set(_input_var), key=_input_var.index)
+#
+#     @property
+#     def _symbol(self):
+#         return sympy.Symbol(f"\prod_{{t=0}}^{{{self.max_iter}}}{self.loss._symbol}")
+#
+#     def _get_eval(self, variables, **kwargs):
+#         input_var = variables.get_variables(self._input_var)
+#
+#         loss, samples = self.loss.eval(input_var, return_dict=True)
+#
+#         variables.update(samples)
+#         self.iter += 1
+#         return loss, variables
+#
+#     def print_arithmetic(self, n=2):
+#         return f"\n{' ' * n}{self.__class__.__name__}({self.loss.print_arithmetic(n + 2)}\n{' ' * n})"

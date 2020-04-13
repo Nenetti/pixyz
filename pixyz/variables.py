@@ -10,7 +10,7 @@ class Variables:
     def __init__(self, **kwargs):
         """
         Args:
-            **kwargs (dict[str, torch.Tensor]): variables
+            # **kwargs (dict[str, torch.Tensor]): variables
 
         """
         self._x_dict = kwargs
@@ -44,8 +44,28 @@ class Variables:
         """
         if isinstance(keys, str):
             return [self._x_dict[keys]]
-        else:
+        elif isinstance(keys, list):
             return [self._x_dict[key] for key in keys if key in self._x_dict.keys()]
+        else:
+            ValueError()
+
+    def get_value(self, key):
+        """
+        Get values from `Variables` specified by `keys`.
+
+        Args:
+            keys (str or list[str]):
+
+        Returns:
+            list: only values
+
+        """
+        if isinstance(key, str):
+            return self._x_dict[key]
+        elif isinstance(key, list) and len(key) == 1:
+            return self._x_dict[key[0]]
+        else:
+            ValueError()
 
     def delete_dict_values(self, keys):
         """
@@ -108,6 +128,9 @@ class Variables:
 
     def keys(self):
         return self._x_dict.keys()
+
+    def clear(self):
+        self._x_dict.clear()
 
     def __getitem__(self, key):
         return self._x_dict[key]

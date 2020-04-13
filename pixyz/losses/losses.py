@@ -5,6 +5,7 @@ import torch
 import numbers
 from copy import deepcopy
 
+from ..utils import convert_latex_name
 from ..variables import Variables
 
 
@@ -12,6 +13,9 @@ class AbstractLoss(object, metaclass=abc.ABCMeta):
 
     def __init__(self, input_var=[]):
         self._input_var = input_var
+
+        if isinstance(self._input_var, str):
+            self._input_var = [self._input_var]
 
     @property
     def input_var(self):
@@ -38,8 +42,7 @@ class AbstractLoss(object, metaclass=abc.ABCMeta):
 
         """
         if not (set(list(variables.keys())) >= set(self._input_var)):
-            raise ValueError("Input keys are not valid, expected {} but got {}.".format(self._input_var,
-                                                                                        list(variables.keys())))
+            raise ValueError(f"Input keys are not valid, expected {self._input_var} but got {list(variables.keys())}.")
 
         loss, variables = self._get_eval(variables, **kwargs)
 
@@ -186,7 +189,7 @@ class Loss(AbstractLoss):
         super(Loss, self).__init__(input_var)
 
     def print_arithmetic(self, n=2):
-        return f"\n{' ' * n}{self.__class__.__name__}({self.input_var}\n)"
+        return f"\n{' ' * n}{self.__class__.__name__}({self.input_var})"
 
 
 class ValueLoss(AbstractLoss):
@@ -238,15 +241,15 @@ class Parameter(AbstractLoss):
             raise ValueError()
         super(Parameter, self).__init__(input_var)
 
-    def _get_eval(self, variables={}, **kwargs):
-        return variables[self._input_var], variables
+    def _get_eval(self, variables, **kwargs):
+        return variables.get_values(self._input_var)[0], variables
 
     @property
     def _symbol(self):
-        return sympy.Symbol(self._input_var[0])
+        return convert_latex_name(self._input_var[0])
 
     def print_arithmetic(self, n=2):
-        return f"\n{' ' * n}{self.__class__.__name__}({self.input_var}\n)"
+        return f"\n{' ' * n}{self.__class__.__name__}({self.input_var})"
 
 
 class SetLoss(AbstractLoss):
@@ -329,7 +332,7 @@ class AddLoss(MultiLossOperator):
 
     @property
     def _symbol(self):
-        return self.loss1._symbol + self.loss2._symbol
+        return sympy.Symbol(f"{self.loss1._symbol}+{self.loss2._symbol}")
 
     def _get_eval(self, variables, **kwargs):
         loss1, loss2, variables = super()._get_eval(variables, **kwargs)
@@ -363,7 +366,7 @@ class SubLoss(MultiLossOperator):
 
     @property
     def _symbol(self):
-        return self.loss1._symbol - self.loss2._symbol
+        return sympy.Symbol(f"{self.loss1._symbol}-{self.loss2._symbol}")
 
     def _get_eval(self, variables, **kwargs):
         loss1, loss2, variables = super()._get_eval(variables, **kwargs)
@@ -391,7 +394,7 @@ class MulLoss(MultiLossOperator):
 
     @property
     def _symbol(self):
-        return self.loss1._symbol * self.loss2._symbol
+        return sympy.Symbol(f"{self.loss1._symbol} {self.loss2._symbol}")
 
     def _get_eval(self, variables, **kwargs):
         loss1, loss2, variables = super()._get_eval(variables, **kwargs)

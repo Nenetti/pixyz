@@ -21,7 +21,6 @@ class KullbackLeibler(Loss):
                 "Divergence between these two distributions cannot be evaluated, "
                 f"got {self.p.distribution_name} and {self.q.distribution_name}."
             )
-
         input_p = variables.get_variables(self.p.input_var)
         self.p.set_dist(input_p)
 
@@ -29,6 +28,14 @@ class KullbackLeibler(Loss):
         self.q.set_dist(input_q)
 
         divergence = kl_divergence(self.p.dist, self.q.dist)
+
+        if len(self.p.cond_var) > 0:
+            latent_var = self.p.get_sample(reparam=True)
+            variables.update(latent_var)
+
+        if len(self.q.cond_var) > 0:
+            latent_var = self.q.get_sample(reparam=True)
+            variables.update(latent_var)
 
         if self.dim:
             divergence = torch.sum(divergence, dim=self.dim)
